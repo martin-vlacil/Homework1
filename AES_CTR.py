@@ -6,6 +6,7 @@ def keygen() -> bytes:
     return secrets.token_bytes(16)
 
 def encrypt(message: str, key: bytes, nonce: bytes) -> bytes:
+    # MODE_ECB ensures barebone AES encryption algorithm
     aes = AES.new(key, AES.MODE_ECB)
     byte_encoding = message.encode()
     blocks = cut_byte_encoding_into_blocks(byte_encoding)
@@ -24,6 +25,7 @@ def encrypt(message: str, key: bytes, nonce: bytes) -> bytes:
     return ciphertext
 
 def decrypt(ciphertext: bytes, key: bytes, nonce: bytes) -> str:
+    # MODE_ECB ensures barebone AES encryption algorithm
     aes = AES.new(key, AES.MODE_ECB)
     blocks = cut_byte_encoding_into_blocks(ciphertext)
     # Ignore the first block since we pass the nonce in the function parameter

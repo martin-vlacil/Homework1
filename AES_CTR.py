@@ -5,15 +5,15 @@ def keygen() -> bytes:
     # 16 bytes = 128 bits for AES
     return secrets.token_bytes(16)
 
-def encrypt(message: str, key: bytes, nonce: bytes) -> bytes:
+def encrypt(message: str, key: bytes) -> bytes:
+    nonce = secrets.token_bytes(8)
     # MODE_ECB ensures barebone AES encryption algorithm
     aes = AES.new(key, AES.MODE_ECB)
     byte_encoding = message.encode()
     blocks = cut_byte_encoding_into_blocks(byte_encoding)
-    counter = make_counter_block(nonce, 0)
-    counter_encryption = aes.encrypt(counter)
+    c0 = make_counter_block(nonce, 0)
     # Initialize the ciphertext with the initial counter
-    ciphertext = counter_encryption
+    ciphertext = c0
     # Loop over the blocks, create a counter for the relevant block, encrypt it with AES and XOR it into plaintext block
     for i, block in enumerate(blocks):
         counter = make_counter_block(nonce, i)
@@ -24,25 +24,30 @@ def encrypt(message: str, key: bytes, nonce: bytes) -> bytes:
     
     return ciphertext
 
-def decrypt(ciphertext: bytes, key: bytes, nonce: bytes) -> str:
+def decrypt(ciphertext: bytes, key: bytes) -> str:
     # MODE_ECB ensures barebone AES encryption algorithm
     aes = AES.new(key, AES.MODE_ECB)
     blocks = cut_byte_encoding_into_blocks(ciphertext)
-    # Ignore the first block since we pass the nonce in the function parameter
+    # Extract the first block with the nonce_counter and loop through the remaining blocks
+    c0 = blocks[:1]
+    nonce = c0[0][:8]
     blocks = blocks[1:]
 
     message_encoded = b""
     # Here we again encrypt the nonce and XOR into the ciphertext as XOR is inverse to itself to recover plaintext block
-    for i, block in enumerate(blocks):
+    for i, ciphertext_block in enumerate(blocks):
         counter = make_counter_block(nonce, i)
         counter_encryption = aes.encrypt(counter)
-        ciphertext_block = bytes(a ^ b for a, b in zip(block, counter_encryption))
+        message_block = bytes(a ^ b for a, b in zip(ciphertext_block, counter_encryption))
         # Build the message
-        message_encoded += ciphertext_block
+        message_encoded += message_block
 
-    message = message_encoded.decode()
-
-    return message
+    # Converting bytecode into readable string
+    try:
+        message = message_encoded.decode()
+        return message
+    except UnicodeDecodeError as e:
+        print("Cannot decode into plaintext as it does not contain UTF-8 characters. DID SOMEONE MESS WITH THE CIPHERTEXT?")
 
 def make_counter_block(nonce: bytes, counter: int) -> bytes:
     return nonce + counter.to_bytes(8, "big")
